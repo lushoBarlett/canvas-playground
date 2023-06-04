@@ -1,0 +1,97 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 0;
+}
+
+/* A white rounded card in the middle of the screen */
+main {
+    background-color: black;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    color: white;
+    border: 3px solid lightblue;
+
+    border-radius: 5px;
+    padding: 1rem;
+
+    height: 10rem;
+    aspect-ratio: 16 / 9;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+
+    animation: bounce 3s ease-in-out infinite alternate, fadeIn 3s ease-in-out, glow 1s ease-in-out infinite alternate;
+    transition: background-color 0.2s ease-in-out;
+
+    z-index: 1;
+
+    user-select: none;
+
+    cursor: pointer;
+}
+
+main:hover {
+    background-color: lightblue;
+}
+
+/* animate to fade in slowly */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+/* animate to bounce */
+@keyframes bounce {
+    from {
+        transform: translateY(0.5rem);
+    }
+    to {
+        transform: translateY(-0.5rem);
+    }
+}
+
+/* animate to glow */
+@keyframes glow {
+    from {
+        box-shadow: 0 0 20px white, 0 0 40px cyan;
+        text-shadow: 0 0 10px white, 0 0 20px cyan;
+    }
+    to {
+        box-shadow: 0 0 40px white, 0 0 80px cyan;
+        text-shadow: 0 0 20px white, 0 0 40px cyan;
+    }
+}
