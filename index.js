@@ -4,5 +4,5 @@ import TextAnimation from './text.js';
 import Caleidoscope from './caleidoscope.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  Caleidoscope();
+  Tron();
 });
