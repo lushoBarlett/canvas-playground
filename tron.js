@@ -1,4 +1,4 @@
-import { setup2DCanvas } from './lib.js';
+import { setup2DCanvas, WSStableConnection } from './lib.js';
 
 async function accessToken() {
   const cliendID = 'e0ce7c5a25654079a4352b6bcfc14425';
@@ -160,6 +160,10 @@ export default async function Tron() {
 
   const SIDE = SIZE * 0.8;
 
+  const mq = new WSStableConnection('ws://localhost:11235', receiver);
+
+  mq.send({ type: 'tronsetup', side: SIDE });
+
   // paint neon borders
   const borderWidth = 8;
   const offset = {
@@ -188,10 +192,6 @@ export default async function Tron() {
     ];
   }
 
-  resetGame();
-
-  draw();
-
   window.addEventListener('keydown', e => {
     switch (e.key) {
       case 'ArrowUp':    return motos[0].changeDirection(3 * Math.PI / 2);
@@ -218,6 +218,18 @@ export default async function Tron() {
       case ' ': return motos[1].speed = 2;
     }
   });
+
+  function receiver(msg) {
+    switch (msg.type) {
+
+      case 'tronstart':
+        const side = msg.side;
+        console.log(side);
+        resetGame();
+        draw();
+        break;
+    }
+  }
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -247,6 +259,13 @@ export default async function Tron() {
     neonBorder(borderWidth / 2, offset, 'rgb(250, 250, 250)');
 
     motos.forEach(moto => {
+
+      mq.send(JSON.stringify({
+        x: moto.x,
+        y: moto.y,
+        color: moto.color,
+      }));
+
       moto.move();
       moto.draw();
     });
