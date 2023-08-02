@@ -160,9 +160,10 @@ export default async function Tron() {
 
   const SIDE = SIZE * 0.8;
 
-  const mq = new WSStableConnection('ws://localhost:11235', receiver);
+  const hostname = window.location.hostname
+  const mq = new WSStableConnection(`ws://${hostname}:11235`, receiver);
 
-  mq.send({ type: 'tronsetup', side: SIDE });
+  mq.send({ type: 'connect' });
 
   // paint neon borders
   const borderWidth = 8;
@@ -219,14 +220,27 @@ export default async function Tron() {
     }
   });
 
-  function receiver(msg) {
-    switch (msg.type) {
+  function receiver(message) {
+    switch (message.type) {
 
-      case 'tronstart':
-        const side = msg.side;
-        console.log(side);
+      case 'connect':
         resetGame();
         draw();
+        mq.send({ type: 'start', width: canvas.width, height: canvas.height });
+        break;
+
+      case 'start':
+        resetGame();
+        update();
+        break;
+
+      case 'turn':
+        motos[message.player - 1].changeDirection(message.d);
+        break;
+
+      case 'won':
+        resetGame();
+        update();
         break;
     }
   }
@@ -259,13 +273,6 @@ export default async function Tron() {
     neonBorder(borderWidth / 2, offset, 'rgb(250, 250, 250)');
 
     motos.forEach(moto => {
-
-      mq.send(JSON.stringify({
-        x: moto.x,
-        y: moto.y,
-        color: moto.color,
-      }));
-
       moto.move();
       moto.draw();
     });
@@ -292,7 +299,10 @@ export default async function Tron() {
 
     if (pathIntersection(motos[1].line, sceneBoundingPath))
       resetGame();
+  }
 
-    requestAnimationFrame(draw);
+  function update() {
+    draw();
+    requestAnimationFrame(update);
   }
 }

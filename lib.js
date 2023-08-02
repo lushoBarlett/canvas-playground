@@ -17,6 +17,7 @@ export function setup2DWebGLCanvas() {
 export class WSStableConnection {
 
   constructor(url, receiver = null) {
+    this.url = url;
     this.sendQueue = [];
     this.receiveQueue = [];
     this.receiver = receiver;
@@ -28,14 +29,16 @@ export class WSStableConnection {
 
       console.log(`[${url}]: connected`);
 
-      for (let msg of this.sendQueue)
+      for (let msg of this.sendQueue) {
+        console.log(`[${url}]: > ${JSON.stringify(msg)}`);
         this.ws.send(JSON.stringify(msg));
+      }
 
       this.sendQueue = [];
     };
 
     const message = ({ data }) => {
-      console.log(`[${url}]: ${data}`);
+      console.log(`[${url}]: < ${data}`);
 
       this.receiveQueue.push(JSON.parse(data));
 
@@ -72,9 +75,12 @@ export class WSStableConnection {
   }
 
   send(msg) {
-    if (this.ws.readyState === WebSocket.OPEN)
+    if (this.ws.readyState === WebSocket.OPEN) {
+      console.log(`[${this.url}]: > ${JSON.stringify(msg)}`);
       this.ws.send(JSON.stringify(msg));
-    else
+
+    } else {
       this.sendQueue.push(msg);
+    }
   }
 }
