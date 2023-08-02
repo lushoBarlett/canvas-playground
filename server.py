@@ -124,10 +124,14 @@ async def send_all(message):
         await info.websocket.send(message)
 
 
+def close_hits(hit1, hit2):
+    return abs(hit1[1] - hit2[1]) <= 1 and abs(hit1[2] - hit2[2]) <= 1
+
+
 def handshake_hit():
     if all(info.hit for info in PLAYERS.values()):
         [hit1, hit2] = [info.hit for info in PLAYERS.values()]
-        return hit1[0] if hit1 == hit2 else 0
+        return hit1[0] if hit1[0] == hit2[1] and close_hits(hit1, hit2) else 0
     return 0
 
 
