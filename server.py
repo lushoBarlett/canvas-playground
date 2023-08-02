@@ -109,6 +109,7 @@ def save_size(websocket, width, height):
         Info.SaveCoords(websocket, width, height)
 
 
+# !FIXME: this protocol doesn't work in all screens, something is at play
 def handshake_size():
     if len(PLAYERS) == 2 and all(info.width for info in PLAYERS.values()):
         return (
@@ -124,10 +125,12 @@ async def send_all(message):
         await info.websocket.send(message)
 
 
+# !FIXME: this is completely arbitrary and I don't know if it works
 def close_hits(hit1, hit2):
     return abs(hit1[1] - hit2[1]) <= 1 and abs(hit1[2] - hit2[2]) <= 1
 
 
+# !FIXME: this is absolutely not how you do this, at least time it out
 def handshake_hit():
     if all(info.hit for info in PLAYERS.values()):
         [hit1, hit2] = [info.hit for info in PLAYERS.values()]
