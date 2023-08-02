@@ -212,6 +212,9 @@ export default async function Tron() {
 
   const { canvas, ctx } = setup2DCanvas();
 
+  const MAX_WIDTH = canvas.width;
+  const MAX_HEIGHT = canvas.height;
+
   /**
    * Used as parameters of the graphics of the game.
    * Calculated after the canvas size is handshaked
@@ -246,6 +249,23 @@ export default async function Tron() {
    */
   let controls;
 
+  /**
+   * @type {boolean}
+   * Flag that indicates if the game is running
+   * requesting animation frames. We need this
+   * because in a reconection we need want to
+   * call the update function again
+   */
+  let gameRunning = false;
+
+  /**
+   * @type {number | null}
+   * Animation frame id, used to cancel the
+   * animation frame when the game is reset
+   * or the canvas is resized
+   */
+  let animationId = null;
+
   return; // ONLY REACTIVE CODE FROM HERE ON
 
   function receiver(message) {
@@ -253,18 +273,34 @@ export default async function Tron() {
 
       case 'connect':
         me = message.player - 1;
-        calculateGameParameters(canvas.width, canvas.height);
+
+        calculateGameParameters();
         resetGame();
+
+        // Due to reconnecting, we need to cancel the animation frame
+        // if one is already running, this stops the animation
+        if (animationId !== null)
+          cancelAnimationFrame(animationId);
+
         draw();
-        MQ.send({ type: 'start', width: canvas.width, height: canvas.height });
+
+        MQ.send({ type: 'start', width: MAX_WIDTH, height: MAX_HEIGHT });
+
         break;
 
       case 'start':
-        calculateGameParameters(message.width, message.height);
+
+        resizeCanvas(message.width, message.height);
+        calculateGameParameters();
         resetGame();
-        controls = isMobileDevice() ? new MobileControls() : new KeyboardControls();
-        controls.setup(changeDirection, changeSpeed);
+
+        if (!controls) {
+          controls = isMobileDevice() ? new MobileControls() : new KeyboardControls();
+          controls.setup(changeDirection, changeSpeed);
+        }
+
         update();
+
         break;
 
       case 'turn':
@@ -291,10 +327,12 @@ export default async function Tron() {
     bikes[me].changeSpeed(spedup);
   }
 
-  function calculateGameParameters(width, height) {
+  function resizeCanvas(width, height) {
     canvas.width = width;
     canvas.height = height;
+  }
 
+  function calculateGameParameters() {
     SIZE = Math.min(canvas.width, canvas.height);
     SIDE = SIZE * 0.8;
     OFFSET = {
@@ -396,6 +434,6 @@ export default async function Tron() {
 
   function update() {
     draw();
-    requestAnimationFrame(update);
+    animationId = requestAnimationFrame(update);
   }
 }

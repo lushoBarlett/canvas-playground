@@ -104,12 +104,12 @@ def reset_player(websocket):
         Info.Connect(websocket, Info.Player(websocket))
 
 
-def save_coords(websocket, width, height):
+def save_size(websocket, width, height):
     if Info.Connected(websocket):
         Info.SaveCoords(websocket, width, height)
 
 
-def handshake_coords():
+def handshake_size():
     if len(PLAYERS) == 2 and all(info.width for info in PLAYERS.values()):
         return (
             min(info.width  for info in PLAYERS.values()),
@@ -140,6 +140,14 @@ async def handle(websocket, M: Message):
                 print(f"Player {player} reconnected")
                 reset_player(websocket)
                 await websocket.send(json.dumps({ 'type': 'connect', 'player': player }))
+
+                # if the other player is connected
+                # we wanna reset the game for them too
+                if len(PLAYERS) == 2:
+                    ws = Info.OtherPlayer(websocket)
+                    reset_player(ws)
+                    await ws.send(json.dumps({ 'type': 'connect', 'player': comp(player) }))
+
                 return
 
             # impure function, do not call more than once
@@ -149,8 +157,9 @@ async def handle(websocket, M: Message):
 
         case 'start':
             print(f"Player {Info.Player(websocket)} started")
-            save_coords(websocket, M.width, M.height)
-            if h := handshake_coords():
+            save_size(websocket, M.width, M.height)
+            if h := handshake_size():
+                print(f"Game started with size {h[0]}x{h[1]}")
                 await send_all(json.dumps({ 'type': 'start', 'width': h[0], 'height': h[1] }))
 
         case 'turn':
