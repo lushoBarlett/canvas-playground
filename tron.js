@@ -394,13 +394,11 @@ export default async function Tron() {
 
     if (pathIntersection(mine.line, sceneBoundingPath)) {
       MQ.send({ type: "hit", player: me + 1, x: mine.x, y: mine.y });
-      gameOn = false;
       resetGame();
     }
 
     if (pathIntersection(theirs.line, sceneBoundingPath)) {
-      MQ.send({ type: "hit", player: 2 - me, x: mine.x, y: mine.y });
-      gameOn = false;
+      MQ.send({ type: "hit", player: 2 - me, x: theirs.x, y: theirs.y });
       resetGame();
     }
   }
