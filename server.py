@@ -39,9 +39,9 @@ class Info:
 
 
     def OtherPlayer(websocket):
-        for ws in PLAYERS.keys():
-            if ws != websocket:
-                return ws
+        for ip, info in PLAYERS.items():
+            if origin(websocket) != ip:
+                return info.websocket
 
     def __init__(self, player, websocket):
         self.player = player
@@ -68,10 +68,12 @@ class Message:
                 self.height = message['height']
 
             case 'turn':
-                self.d = message['d']
+                self.direction = message['direction']
+                self.x = message['x']
+                self.y = message['y']
 
             case 'hit':
-                self.p = message['p']
+                self.player = message['player']
                 self.x = message['x']
                 self.y = message['y']
 
@@ -90,6 +92,11 @@ def assign_player(websocket):
         Info.Connect(websocket, player)
         return player
     return 0
+
+
+def reset_player(websocket):
+    if Info.Connected(websocket):
+        Info.Connect(websocket, Info.Player(websocket))
 
 
 def save_coords(websocket, width, height):
@@ -126,6 +133,7 @@ async def handle(websocket, M: Message):
             if origin(websocket) in PLAYERS:
                 player = Info.Player(websocket)
                 print(f"Player {player} reconnected")
+                reset_player(websocket)
                 await websocket.send(json.dumps({ 'type': 'connect', 'player': player }))
                 return
 
@@ -153,9 +161,10 @@ async def handle(websocket, M: Message):
             if len(PLAYERS) < 2:
                 return
 
-            Info.SaveHit(websocket, M.p, M.x, M.y)
+            Info.SaveHit(websocket, M.player, M.x, M.y)
             if hit := handshake_hit():
-                await send_all(json.dumps({ 'type': 'won', 'player': hit }))
+                print(f"Player {2 - hit + 1} won")
+                await send_all(json.dumps({ 'type': 'won', 'player': 2 - hit + 1 }))
 
 
 async def wss_handler(websocket):
@@ -163,7 +172,8 @@ async def wss_handler(websocket):
         async for message in websocket:
             await handle(websocket, Message(message))
 
-    except exceptions.ConnectionClosed:
+    except exceptions.ConnectionClosed as e:
+        print(e)
         print(f"Player {Info.Player(websocket)} disconnected")
         del PLAYERS[origin(websocket)]
 

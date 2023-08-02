@@ -83,7 +83,14 @@ function pathIntersection(path1, path2) {
   return false;
 }
 
-class Moto {
+const DIRECTION_VALUES = {
+  RIGHT:           0    ,
+  UP:        Math.PI / 2,
+  LEFT:      Math.PI    ,
+  DOWN:  3 * Math.PI / 2,
+};
+
+class Bike {
   constructor(ctx, x, y, width, height, color, direction, player) {
     this.ctx = ctx;
     this.x = x;
@@ -117,22 +124,29 @@ class Moto {
   }
 
   move() {
-    this.x += this.speed * Math.cos(this.direction);
-    this.y += this.speed * Math.sin(this.direction);
+    const angle = DIRECTION_VALUES[this.direction];
 
-    this.line[this.line.length - 1] = [this.x, this.y];
+    this.x += this.speed * Math.cos(angle);
+    this.y -= this.speed * Math.sin(angle); // y axis is inverted
+
+    const p = this.line[this.line.length - 1];
+    p[0] = this.x;
+    p[1] = this.y;
   }
 
   changeDirection(direction) {
-    if (Math.abs(Math.cos(this.direction)) === Math.abs(Math.cos(direction)))
-      return;
-
-    if (Math.abs(Math.sin(this.direction)) === Math.abs(Math.sin(direction)))
+    if (this.direction === direction)
       return;
 
     this.direction = direction;
 
     this.line.push([this.x, this.y]);
+  }
+
+  updateDirection(direction, x, y) {
+    this.x = x;
+    this.y = y;
+    this.changeDirection(direction);
   }
 };
 
@@ -156,23 +170,125 @@ export default async function Tron() {
 
   const { canvas, ctx } = setup2DCanvas();
 
-  const SIZE = Math.min(canvas.width, canvas.height);
+  /**
+   * Used as parameters of the graphics of the game.
+   * Calculated after the canvas size is handshaked
+   */
+  let SIZE, SIDE, OFFSET;
 
-  const SIDE = SIZE * 0.8;
+  const BORDER = 8;
 
-  const hostname = window.location.hostname
-  const mq = new WSStableConnection(`ws://${hostname}:11235`, receiver);
+  const MQ = new WSStableConnection(`ws://${window.location.hostname}:11235`, receiver);
 
-  mq.send({ type: 'connect' });
+  MQ.send({ type: 'connect' });
 
-  // paint neon borders
-  const borderWidth = 8;
-  const offset = {
-    x: (canvas.width - SIDE) / 2,
-    y: (canvas.height - SIDE) / 2,
-  };
+  /**
+   * @type {readonly [Bike, Bike]}
+   * Both bikes are stored in this array,
+   * one is controlled by the player, the other
+   * is controlled by another player in the web
+   */
+  let bikes;
 
-  // blur
+  /**
+   * @type {0 | 1}
+   * Bike index that is controlled by the player
+   * We receive this information from the server
+   * in the 'connect' message
+   */
+  let me;
+
+  /**
+   * @type {boolean}
+   * Whether the game is running or not,
+   * we use this to stop the game loop in
+   * the update function when the game is over
+   */
+  let gameOn;
+
+  return; // ONLY REACTIVE CODE FROM HERE ON
+
+  function setupControls() {
+    window.addEventListener('keydown', keydown);
+    window.addEventListener('keypress', keypress);
+    window.addEventListener('keyup', keyup);
+  }
+
+  function teardownControls() {
+    window.removeEventListener('keydown', keydown);
+    window.removeEventListener('keypress', keypress);
+    window.removeEventListener('keyup', keyup);
+  }
+
+  function keydown(e) {
+    switch (e.key) {
+      case 'ArrowUp':    return changeDirection('UP');
+      case 'ArrowDown':  return changeDirection('DOWN');
+      case 'ArrowLeft':  return changeDirection('LEFT');
+      case 'ArrowRight': return changeDirection('RIGHT');
+    }
+
+    function changeDirection(direction) {
+      MQ.send({ type: 'turn', direction, x: bikes[me].x, y: bikes[me].y });
+      bikes[me].changeDirection(direction);
+    }
+  }
+
+  function keypress(e) {
+    switch (e.key) {
+      case '0': return bikes[me].speed = 4;
+    }
+  }
+
+  function keyup(e) {
+    switch (e.key) {
+      case '0': return bikes[me].speed = 2;
+    }
+  }
+
+  function receiver(message) {
+    switch (message.type) {
+
+      case 'connect':
+        me = message.player - 1;
+        calculateGameParameters(canvas.width, canvas.height);
+        resetGame();
+        draw();
+        MQ.send({ type: 'start', width: canvas.width, height: canvas.height });
+        break;
+
+      case 'start':
+        gameOn = true;
+        calculateGameParameters(message.width, message.height);
+        resetGame();
+        setupControls();
+        update();
+        break;
+
+      case 'turn':
+        bikes[1 - me].updateDirection(message.direction, message.x, message.y);
+        break;
+
+      case 'won':
+        gameOn = false;
+        teardownControls();
+        resetGame();
+        break;
+    }
+  }
+
+  function calculateGameParameters(width, height) {
+    canvas.width = width;
+    canvas.height = height;
+
+    SIZE = Math.min(canvas.width, canvas.height);
+    SIDE = SIZE * 0.8;
+    OFFSET = {
+      x: (canvas.width - SIDE) / 2,
+      y: (canvas.height - SIDE) / 2,
+    };
+  }
+
   function neonBorder(borderWidth, offset, color) {
     neon(color)
     ctx.lineWidth = borderWidth;
@@ -184,125 +300,92 @@ export default async function Tron() {
     ctx.strokeStyle = color;
   }
 
-  let motos;
-
   function resetGame() {
-    motos = [
-      new Moto(ctx, offset.x + 10, offset.y + 10, 10, 10, 'rgb(100, 200, 250)', 0, 1),
-      new Moto(ctx, offset.x + SIDE - 10, offset.y + SIDE - 10, 10, 10, 'rgb(250, 200, 100)', Math.PI, 2),
+    bikes = [
+      new Bike(ctx, OFFSET.x + 10, OFFSET.y + 10, 10, 10, "rgb(100, 200, 250)", 'RIGHT', 1),
+      new Bike(ctx, OFFSET.x + SIDE - 10, OFFSET.y + SIDE - 10, 10, 10, "rgb(250, 200, 100)", 'LEFT', 2),
     ];
-  }
-
-  window.addEventListener('keydown', e => {
-    switch (e.key) {
-      case 'ArrowUp':    return motos[0].changeDirection(3 * Math.PI / 2);
-      case 'ArrowDown':  return motos[0].changeDirection(    Math.PI / 2);
-      case 'ArrowLeft':  return motos[0].changeDirection(    Math.PI    );
-      case 'ArrowRight': return motos[0].changeDirection(              0);
-      case 'w':          return motos[1].changeDirection(3 * Math.PI / 2);
-      case 's':          return motos[1].changeDirection(    Math.PI / 2);
-      case 'a':          return motos[1].changeDirection(    Math.PI    );
-      case 'd':          return motos[1].changeDirection(              0);
-    }
-  });
-
-  window.addEventListener('keypress', e => {
-    switch (e.key) {
-      case '0': return motos[0].speed = 4;
-      case ' ': return motos[1].speed = 4;
-    }
-  });
-
-  window.addEventListener('keyup', e => {
-    switch (e.key) {
-      case '0': return motos[0].speed = 2;
-      case ' ': return motos[1].speed = 2;
-    }
-  });
-
-  function receiver(message) {
-    switch (message.type) {
-
-      case 'connect':
-        resetGame();
-        draw();
-        mq.send({ type: 'start', width: canvas.width, height: canvas.height });
-        break;
-
-      case 'start':
-        resetGame();
-        update();
-        break;
-
-      case 'turn':
-        motos[message.player - 1].changeDirection(message.d);
-        break;
-
-      case 'won':
-        resetGame();
-        update();
-        break;
-    }
   }
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // paint the background black
-    ctx.fillStyle = 'black';
+    ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.shadowBlur = 20;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    neon('rgb(20, 50, 70)')
+    neon("rgb(20, 50, 70)");
     ctx.lineWidth = 3;
     ctx.beginPath();
-    for (let i = offset.x + SIDE / 10; i < offset.x + SIDE - borderWidth; i += SIDE / 10) {
-      ctx.moveTo(i, offset.y + borderWidth / 2);
-      ctx.lineTo(i, offset.y + SIDE - borderWidth / 2);
+    for (let i = OFFSET.x + SIDE / 10; i < OFFSET.x + SIDE - BORDER; i += SIDE / 10) {
+      ctx.moveTo(i, OFFSET.y + BORDER / 2);
+      ctx.lineTo(i, OFFSET.y + SIDE - BORDER / 2);
     }
-    for (let i = offset.y + SIDE / 10; i < offset.y + SIDE - borderWidth; i += SIDE / 10) {
-      ctx.moveTo(offset.x + borderWidth / 2, i);
-      ctx.lineTo(offset.x + SIDE - borderWidth / 2, i);
+    for (let i = OFFSET.y + SIDE / 10; i < OFFSET.y + SIDE - BORDER; i += SIDE / 10) {
+      ctx.moveTo(OFFSET.x + BORDER / 2, i);
+      ctx.lineTo(OFFSET.x + SIDE - BORDER / 2, i);
     }
     ctx.stroke();
 
-    neonBorder(borderWidth, offset, 'rgb(100, 200, 250)');
-    neonBorder(borderWidth / 2, offset, 'rgb(250, 250, 250)');
+    neonBorder(BORDER, OFFSET, "rgb(100, 200, 250)");
+    neonBorder(BORDER / 2, OFFSET, "rgb(250, 250, 250)");
 
-    motos.forEach(moto => {
+    bikes.forEach(moto => {
       moto.move();
       moto.draw();
     });
 
-    if (pathIntersection(motos[0].line, motos[1].line))
-      resetGame();
+    const mine = bikes[me];
+    const theirs = bikes[1 - me];
 
-    if (pathIntersection(motos[0].line.slice(-2), motos[0].line.slice(0, -1)))
+    if (pathIntersection(mine.line.slice(-2), theirs.line)) {
+      MQ.send({ type: "hit", player: me + 1, x: mine.x, y: mine.y });
       resetGame();
+    }
 
-    if (pathIntersection(motos[1].line.slice(-2), motos[1].line.slice(0, -1)))
+    if (pathIntersection(theirs.line.slice(-2), mine.line)) {
+      MQ.send({ type: "hit", player: 2 - me, x: theirs.x, y: theirs.y });
       resetGame();
+    }
+
+    if (pathIntersection(mine.line.slice(-2), mine.line.slice(0, -1))) {
+      MQ.send({ type: "hit", player: me + 1, x: mine.x, y: mine.y });
+      resetGame();
+    }
+
+    if (pathIntersection(theirs.line.slice(-2), theirs.line.slice(0, -1))) {
+      MQ.send({ type: "hit", player: 2 - me, x: theirs.x, y: theirs.y });
+      resetGame();
+    }
 
     const sceneBoundingPath = [
-      [offset.x, offset.y],
-      [offset.x + SIDE, offset.y],
-      [offset.x + SIDE, offset.y + SIDE],
-      [offset.x, offset.y + SIDE],
-      [offset.x, offset.y],
+      [OFFSET.x, OFFSET.y],
+      [OFFSET.x + SIDE, OFFSET.y],
+      [OFFSET.x + SIDE, OFFSET.y + SIDE],
+      [OFFSET.x, OFFSET.y + SIDE],
+      [OFFSET.x, OFFSET.y],
     ];
 
-    if (pathIntersection(motos[0].line, sceneBoundingPath))
+    if (pathIntersection(mine.line, sceneBoundingPath)) {
+      MQ.send({ type: "hit", player: me + 1, x: mine.x, y: mine.y });
+      gameOn = false;
       resetGame();
+    }
 
-    if (pathIntersection(motos[1].line, sceneBoundingPath))
+    if (pathIntersection(theirs.line, sceneBoundingPath)) {
+      MQ.send({ type: "hit", player: 2 - me, x: mine.x, y: mine.y });
+      gameOn = false;
       resetGame();
+    }
   }
 
   function update() {
     draw();
-    requestAnimationFrame(update);
+
+    if (gameOn)
+      requestAnimationFrame(update);
   }
 }
