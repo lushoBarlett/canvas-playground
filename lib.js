@@ -84,3 +84,121 @@ export class WSStableConnection {
     }
   }
 }
+
+export function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+/**
+ * @brief class Controls is an abstract class that defines the interface for
+ * any control scheme.
+ */
+export class Controls {
+
+    setup(onDirection, onSpeed) {
+      throw new Error('Controls: setup not implemented');
+    }
+
+    teardown() {
+      throw new Error('Controls: teardown not implemented');
+    }
+}
+
+export class KeyboardControls extends Controls {
+
+  constructor() {
+    super();
+    this.keydown = null;
+    this.keypress = null;
+    this.keyup = null;
+  }
+
+  setup(onDirection, onSpeed) {
+    this.keydown = e => {
+      switch (e.key) {
+        case 'ArrowUp':    return onDirection('UP');
+        case 'ArrowDown':  return onDirection('DOWN');
+        case 'ArrowLeft':  return onDirection('LEFT');
+        case 'ArrowRight': return onDirection('RIGHT');
+      }
+    };
+
+    this.keypress = e => {
+      switch (e.key) {
+        case '0': return onSpeed(true);
+      }
+    }
+
+    this.keyup = e => {
+      switch (e.key) {
+        case '0': return onSpeed(false);
+      }
+    }
+
+    window.addEventListener('keydown', this.keydown);
+    window.addEventListener('keypress', this.keypress);
+    window.addEventListener('keyup', this.keyup);
+  }
+
+  teardown() {
+    if (!this.keydown)
+      console.warn('PCControls: not setup');
+
+    window.removeEventListener('keydown', this.keydown);
+    window.removeEventListener('keypress', this.keypress);
+    window.removeEventListener('keyup', this.keyup);
+  }
+}
+
+export class MobileControls extends Controls {
+
+  DEADZONE = 0.1;
+
+  constructor() {
+    super();
+    this.touchstart = null;
+    this.touchmove = null;
+    this.spedup = false;
+  }
+
+  setup(onDirection, onSpeed) {
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    this.touchmove = ({ touches: [{ clientX, clientY }] }) => {
+      const touchEndX = clientX;
+      const touchEndY = clientY;
+
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+
+      if (Math.abs(deltaX) < this.DEADZONE && Math.abs(deltaY) < this.DEADZONE) {
+        this.spedup = !this.spedup;
+        onSpeed(this.spedup);
+        return;
+      }
+
+      if (Math.abs(deltaX) > Math.abs(deltaY))
+        deltaX > 0 ? onDirection('RIGHT') : onDirection('LEFT');
+      else
+        deltaY > 0 ? onDirection('DOWN') : onDirection('UP');
+    };
+
+    this.touchstart = ({ touches: [{ clientX, clientY }] }) => {
+      touchStartX = clientX;
+      touchStartY = clientY;
+    };
+
+    window.addEventListener('touchstart', this.touchstart);
+    window.addEventListener('touchmove', this.touchmove);
+  }
+
+  teardown() {
+    if (!this.touchstart)
+      console.warn('MobileControls: not setup');
+
+    window.removeEventListener('touchstart', this.touchstart);
+    window.removeEventListener('touchmove', this.touchmove);
+  }
+}

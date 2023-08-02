@@ -1,4 +1,4 @@
-import { setup2DCanvas, WSStableConnection } from './lib.js';
+import { isMobileDevice, MobileControls, KeyboardControls, setup2DCanvas, WSStableConnection, Controls } from './lib.js';
 
 async function accessToken() {
   const cliendID = 'e0ce7c5a25654079a4352b6bcfc14425';
@@ -123,15 +123,19 @@ class Bike {
     this.ctx.stroke();
   }
 
+  updateLine() {
+    const p = this.line[this.line.length - 1];
+    p[0] = this.x;
+    p[1] = this.y;
+  }
+
   move() {
     const angle = DIRECTION_VALUES[this.direction];
 
     this.x += this.speed * Math.cos(angle);
     this.y -= this.speed * Math.sin(angle); // y axis is inverted
 
-    const p = this.line[this.line.length - 1];
-    p[0] = this.x;
-    p[1] = this.y;
+    this.updateLine();
   }
 
   changeDirection(direction) {
@@ -143,12 +147,53 @@ class Bike {
     this.line.push([this.x, this.y]);
   }
 
+  changeSpeed(spedup) {
+    this.speed = spedup ? 4 : 2;
+  }
+
   updateDirection(direction, x, y) {
     this.x = x;
     this.y = y;
+    this.updateLine();
     this.changeDirection(direction);
+
+    console.log(this);
+  }
+
+  updateSpeed(spedup, x, y) {
+    this.x = x;
+    this.y = y;
+    this.updateLine();
+    this.changeSpeed(spedup);
+
+    console.log(this);
   }
 };
+
+function PlayButton(audio) {
+  const playbutton = document.createElement('button');
+
+  playbutton.style = `
+    position: absolute; bottom: 3rem; right: 3rem; width: 6rem; height: 6rem; border-radius: 50%;
+    background-color: cyan; color: black; font-size: 2rem; font-weight: bold;
+    border: none; outline: none; user-select: none; cursor: pointer;
+  `;
+
+  playbutton.innerText = "▶";
+
+  playbutton.addEventListener('click', () => {
+    if (audio.paused) {
+      audio.play();
+      playbutton.innerText = "⏸";
+
+    } else {
+      audio.pause();
+      playbutton.innerText = "▶";
+    }
+  });
+
+  return playbutton;
+}
 
 export default async function Tron() {
   const token = await accessToken();
@@ -163,10 +208,7 @@ export default async function Tron() {
 
   const audio = createAudioElement(preview);
 
-  document.body.append(audio);
-
-  document.body.addEventListener('click', () =>
-    audio.paused ? audio.play() : audio.pause());
+  document.body.append(audio, PlayButton(audio));
 
   const { canvas, ctx } = setup2DCanvas();
 
@@ -206,45 +248,13 @@ export default async function Tron() {
    */
   let gameOn;
 
+  /**
+   * @type {Controls}
+   * Controls object that is used to control
+   */
+  let controls;
+
   return; // ONLY REACTIVE CODE FROM HERE ON
-
-  function setupControls() {
-    window.addEventListener('keydown', keydown);
-    window.addEventListener('keypress', keypress);
-    window.addEventListener('keyup', keyup);
-  }
-
-  function teardownControls() {
-    window.removeEventListener('keydown', keydown);
-    window.removeEventListener('keypress', keypress);
-    window.removeEventListener('keyup', keyup);
-  }
-
-  function keydown(e) {
-    switch (e.key) {
-      case 'ArrowUp':    return changeDirection('UP');
-      case 'ArrowDown':  return changeDirection('DOWN');
-      case 'ArrowLeft':  return changeDirection('LEFT');
-      case 'ArrowRight': return changeDirection('RIGHT');
-    }
-
-    function changeDirection(direction) {
-      MQ.send({ type: 'turn', direction, x: bikes[me].x, y: bikes[me].y });
-      bikes[me].changeDirection(direction);
-    }
-  }
-
-  function keypress(e) {
-    switch (e.key) {
-      case '0': return bikes[me].speed = 4;
-    }
-  }
-
-  function keyup(e) {
-    switch (e.key) {
-      case '0': return bikes[me].speed = 2;
-    }
-  }
 
   function receiver(message) {
     switch (message.type) {
@@ -261,7 +271,8 @@ export default async function Tron() {
         gameOn = true;
         calculateGameParameters(message.width, message.height);
         resetGame();
-        setupControls();
+        controls = isMobileDevice() ? new MobileControls() : new KeyboardControls();
+        controls.setup(changeDirection, changeSpeed);
         update();
         break;
 
@@ -269,12 +280,25 @@ export default async function Tron() {
         bikes[1 - me].updateDirection(message.direction, message.x, message.y);
         break;
 
+      case 'speed':
+        bikes[1 - me].updateSpeed(message.spedup, message.x, message.y);
+
       case 'won':
         gameOn = false;
-        teardownControls();
+        controls.teardown();
         resetGame();
         break;
     }
+  }
+
+  function changeDirection(direction) {
+    MQ.send({ type: 'turn', direction, x: bikes[me].x, y: bikes[me].y });
+    bikes[me].changeDirection(direction);
+  }
+
+  function changeSpeed(spedup) {
+    MQ.send({ type: 'speed', spedup, x: bikes[me].x, y: bikes[me].y });
+    bikes[me].changeSpeed(spedup);
   }
 
   function calculateGameParameters(width, height) {

@@ -72,6 +72,11 @@ class Message:
                 self.x = message['x']
                 self.y = message['y']
 
+            case 'speed':
+                self.spedup = message['spedup']
+                self.x = message['x']
+                self.y = message['y']
+
             case 'hit':
                 self.player = message['player']
                 self.x = message['x']
@@ -150,6 +155,14 @@ async def handle(websocket, M: Message):
 
         case 'turn':
             print(f"Player {Info.Player(websocket)} turned")
+            if len(PLAYERS) < 2:
+                return
+
+            ws = Info.OtherPlayer(websocket)
+            await ws.send(str(M))
+
+        case 'speed':
+            print(f"Player {Info.Player(websocket)} sped {'up' if M.spedup else 'down'}")
             if len(PLAYERS) < 2:
                 return
 
