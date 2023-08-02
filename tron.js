@@ -282,10 +282,9 @@ export default async function Tron() {
 
       case 'speed':
         bikes[1 - me].updateSpeed(message.spedup, message.x, message.y);
+        break;
 
       case 'won':
-        gameOn = false;
-        controls.teardown();
         resetGame();
         break;
     }

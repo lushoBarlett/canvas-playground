@@ -154,7 +154,7 @@ async def handle(websocket, M: Message):
                 await send_all(json.dumps({ 'type': 'start', 'width': h[0], 'height': h[1] }))
 
         case 'turn':
-            print(f"Player {Info.Player(websocket)} turned")
+            print(f"Player {Info.Player(websocket)} turned {M.direction} at {M.x}, {M.y}")
             if len(PLAYERS) < 2:
                 return
 
@@ -170,7 +170,7 @@ async def handle(websocket, M: Message):
             await ws.send(str(M))
 
         case 'hit':
-            print(f"Player {Info.Player(websocket)} hit")
+            print(f"Player {Info.Player(websocket)} detected a player {M.player} hit at {M.x}, {M.y}")
             if len(PLAYERS) < 2:
                 return
 

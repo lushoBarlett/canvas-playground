@@ -152,8 +152,6 @@ export class KeyboardControls extends Controls {
 
 export class MobileControls extends Controls {
 
-  DEADZONE = 0.1;
-
   constructor() {
     super();
     this.touchstart = null;
@@ -173,12 +171,6 @@ export class MobileControls extends Controls {
       const deltaX = touchEndX - touchStartX;
       const deltaY = touchEndY - touchStartY;
 
-      if (Math.abs(deltaX) < this.DEADZONE && Math.abs(deltaY) < this.DEADZONE) {
-        this.spedup = !this.spedup;
-        onSpeed(this.spedup);
-        return;
-      }
-
       if (Math.abs(deltaX) > Math.abs(deltaY))
         deltaX > 0 ? onDirection('RIGHT') : onDirection('LEFT');
       else
@@ -192,6 +184,10 @@ export class MobileControls extends Controls {
 
     window.addEventListener('touchstart', this.touchstart);
     window.addEventListener('touchmove', this.touchmove);
+    window.addEventListener('click', () => {
+      this.spedup = !this.spedup;
+      onSpeed(this.spedup);
+    });
   }
 
   teardown() {
