@@ -42,11 +42,11 @@ class Info:
         for ip, info in PLAYERS.items():
             if origin(websocket) != ip:
                 return info.websocket
+        return None
 
     def __init__(self, player, websocket):
         self.player = player
         self.websocket = websocket
-        self.connected = False
         self.width = None
         self.height = None
         self.hit = None

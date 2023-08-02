@@ -241,14 +241,6 @@ export default async function Tron() {
   let me;
 
   /**
-   * @type {boolean}
-   * Whether the game is running or not,
-   * we use this to stop the game loop in
-   * the update function when the game is over
-   */
-  let gameOn;
-
-  /**
    * @type {Controls}
    * Controls object that is used to control
    */
@@ -268,7 +260,6 @@ export default async function Tron() {
         break;
 
       case 'start':
-        gameOn = true;
         calculateGameParameters(message.width, message.height);
         resetGame();
         controls = isMobileDevice() ? new MobileControls() : new KeyboardControls();
@@ -405,8 +396,6 @@ export default async function Tron() {
 
   function update() {
     draw();
-
-    if (gameOn)
-      requestAnimationFrame(update);
+    requestAnimationFrame(update);
   }
 }

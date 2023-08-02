@@ -163,6 +163,7 @@ export class MobileControls extends Controls {
 
     let touchStartX = 0;
     let touchStartY = 0;
+    this.spedup = false; // just in case it gets stuck
 
     this.touchmove = ({ touches: [{ clientX, clientY }] }) => {
       const touchEndX = clientX;
