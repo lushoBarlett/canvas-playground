@@ -108,8 +108,8 @@ export class KeyboardControls extends Controls {
 
   constructor() {
     super();
+    this.spedup = false;
     this.keydown = null;
-    this.keypress = null;
     this.keyup = null;
   }
 
@@ -120,23 +120,24 @@ export class KeyboardControls extends Controls {
         case 'ArrowDown':  return onDirection('DOWN');
         case 'ArrowLeft':  return onDirection('LEFT');
         case 'ArrowRight': return onDirection('RIGHT');
+        case '0':
+          if (this.spedup) // prevents sticky keys
+            return;
+
+          this.spedup = true;
+          return onSpeed(this.spedup);
       }
     };
 
-    this.keypress = e => {
-      switch (e.key) {
-        case '0': return onSpeed(true);
-      }
-    }
-
     this.keyup = e => {
       switch (e.key) {
-        case '0': return onSpeed(false);
+        case '0':
+          this.spedup = false;
+          return onSpeed(this.spedup);
       }
     }
 
     window.addEventListener('keydown', this.keydown);
-    window.addEventListener('keypress', this.keypress);
     window.addEventListener('keyup', this.keyup);
   }
 
